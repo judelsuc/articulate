@@ -285,7 +285,7 @@ def stage_visitor_feedback(topic: str, article_path: str) -> str:
     
     print(f"✓ Reactions saved: {reactions_file}\n")
     
-    return str(article_file)
+    return str(reactions_file)
 
 
 def main():
