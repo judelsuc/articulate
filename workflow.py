@@ -245,6 +245,72 @@ def stage_article(topic: str, force: bool = False) -> str:
     return str(article_file)
 
 
+def stage_revise(topic: str, force: bool = False) -> str:
+    """Revise article based on remarks feedback"""
+    print(f"\n{'='*60}")
+    print("✏️  STAGE 3B: REVISE BASED ON REMARKS")
+    print(f"{'='*60}")
+    print(f"Topic: {topic}\n")
+    
+    output_dir = Config.get_topic_output_dir(topic)
+    article_file = Path(output_dir) / "03_article.md"
+    remarks_file = Path(output_dir) / "remarks.md"
+    revised_file = Path(output_dir) / "04_article_revised.md"
+    
+    # Load article and remarks
+    article_content = load_file(article_file)
+    remarks_content = load_file(remarks_file)
+    
+    if not article_content:
+        print(f"❌ Article not found. Run stage 3 first.")
+        sys.exit(1)
+    
+    if not remarks_content:
+        print(f"⚠️  Remarks file not found. Create one at {remarks_file}")
+        print("Using empty remarks for revision context.")
+        remarks_content = "No specific feedback provided."
+    
+    print("Revising article based on your feedback...")
+    
+    research_tool = PerplexityResearchTool()
+    revision_query = f"""You are a professional editor revising a LinkedIn article.
+
+Here is the CURRENT article:
+{article_content}
+
+---
+
+Here is the AUTHOR'S FEEDBACK and REMARKS:
+{remarks_content}
+
+---
+
+Please revise the article to incorporate the author's feedback while:
+- Maintaining the same structure and flow
+- Keeping the professional tone
+- Preserving all key points and data
+- Addressing specific concerns raised in the remarks
+- Improving clarity and impact based on the feedback
+- Keeping it suitable for LinkedIn (800-1200 words)
+
+Output the complete revised article, ready to post."""
+    
+    revised_content = research_tool.search(revision_query)
+    
+    if revised_content.startswith("Error"):
+        print(f"❌ {revised_content}")
+        sys.exit(1)
+    
+    save_file(revised_content, revised_file, overwrite=force)
+    
+    print(f"\n📝 Article revised ({len(revised_content)} characters)")
+    print(f"📋 Revised article saved: {revised_file}")
+    print(f"   Compare with original: {article_file}")
+    print(f"   Then run: python workflow.py --topic \"{topic}\" --stage article --force")
+    
+    return str(revised_file)
+
+
 def stage_visitor_feedback(topic: str, article_path: str) -> str:
     """Stage 4: Get visitor feedback on article"""
     print(f"\n{'='*60}")
@@ -296,7 +362,7 @@ def main():
     parser.add_argument("--skeleton", help="Path to article skeleton file")
     parser.add_argument(
         "--stage",
-        choices=['research', 'plan', 'article'],
+        choices=['research', 'plan', 'article', 'revise'],
         help="Which stage to run"
     )
     parser.add_argument("--all", action="store_true", help="Run all stages")
@@ -348,6 +414,8 @@ def main():
         print("Would you like LinkedIn visitor reactions to your article?")
         if input("Generate visitor feedback? (y/n): ").strip().lower() == 'y':
             stage_visitor_feedback(args.topic, article_file)
+    elif args.stage == 'revise':
+        stage_revise(args.topic, args.force)
     
     print(f"\n{'='*60}")
     print(f"Completed: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
