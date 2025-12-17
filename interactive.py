@@ -17,8 +17,10 @@ import os
 from pathlib import Path
 from datetime import datetime
 
-from src.config import Config
+from src.config import Config, sanitize_topic
+from src.visitor_agent import evaluate_article_from_all_personas, format_evaluations_for_markdown
 from src.agents.research_agent import PerplexityResearchTool
+from src.tasks.remarks_template import create_remarks_template
 
 
 def load_file(filepath: str) -> str:
@@ -40,24 +42,24 @@ def save_file(content: str, filepath: str) -> str:
 
 def open_file_for_editing(filepath: str) -> bool:
     """
-    Open file in default editor for user to edit.
+    Open file in VS Code for user to edit.
     Returns True if file was modified.
     """
     print(f"\nOpening file for editing: {filepath}")
-    print("Editor: Using your default editor (nano/vim/code)")
+    print("Editor: VS Code")
     print("=" * 60)
     
     # Get file modification time before
     mtime_before = os.path.getmtime(filepath) if os.path.exists(filepath) else 0
     
-    # Use the $EDITOR environment variable or default to nano
-    editor = os.environ.get('EDITOR', 'nano')
-    exit_code = os.system(f"{editor} {filepath}")
+    # Open in VS Code and wait for it to close
+    os.system(f"code --wait {filepath}")
     
     # Check if file was modified
     mtime_after = os.path.getmtime(filepath) if os.path.exists(filepath) else 0
     
     print("=" * 60)
+    print("✓ File editing complete. Continuing...\n")
     return mtime_after > mtime_before
 
 
@@ -96,7 +98,8 @@ def stage_1_research(topic: str, skeleton: str = None) -> dict:
     if skeleton:
         print(f"Skeleton: {skeleton}")
     
-    research_file = Path(Config.OUTPUTS_DIR) / "01_research.md"
+    output_dir = Config.get_topic_output_dir(topic)
+    research_file = Path(output_dir) / "01_research.md"
     
     # Check if research already exists
     if research_file.exists():
@@ -156,7 +159,8 @@ def stage_2_plan(topic: str, research: str, skeleton: str = None) -> dict:
     print("STAGE 2: PLANNING")
     print(f"{'='*60}")
     
-    plan_file = Path(Config.OUTPUTS_DIR) / "02_plan.md"
+    output_dir = Config.get_topic_output_dir(topic)
+    plan_file = Path(output_dir) / "02_plan.md"
     
     print("Generating article plan based on research...")
     
@@ -227,7 +231,8 @@ def stage_3_article(topic: str, research: str, plan: str) -> dict:
     print("STAGE 3: WRITING")
     print(f"{'='*60}")
     
-    article_file = Path(Config.OUTPUTS_DIR) / "03_article.md"
+    output_dir = Config.get_topic_output_dir(topic)
+    article_file = Path(output_dir) / "03_article.md"
     
     print("Generating article based on plan...")
     
@@ -259,38 +264,54 @@ def stage_3_article(topic: str, research: str, plan: str) -> dict:
     
     print_section("Generated Article", article_content)
     
-    # Feedback loop
-    iteration = 1
-    while True:
-        if prompt_yes_no("\n✏️  Would you like to edit the article?"):
-            open_file_for_editing(article_file)
-            article_content = load_file(article_file)
-            print_section("Updated Article", article_content)
-        
-        if prompt_yes_no("✓ Are you happy with the article?"):
-            break
-        
-        if prompt_yes_no("Regenerate article with different style?"):
-            style = input("Describe the desired style (e.g., 'more conversational', 'more data-driven', 'more storytelling'): ").strip()
-            writing_query = f"""Rewrite this LinkedIn article with a {style} style:
+    # Feedback loop with guaranteed remarks creation
+    try:
+        iteration = 1
+        while True:
+            if prompt_yes_no("\n✏️  Would you like to edit the article?"):
+                open_file_for_editing(article_file)
+                article_content = load_file(article_file)
+                print_section("Updated Article", article_content)
             
-            Topic: {topic}
+            if prompt_yes_no("✓ Are you happy with the article?"):
+                break
             
-            Current article:
-            {article_content[:500]}...
+            if prompt_yes_no("Regenerate article with different style?"):
+                style = input("Describe the desired style (e.g., 'more conversational', 'more data-driven', 'more storytelling'): ").strip()
+                writing_query = f"""Rewrite this LinkedIn article with a {style} style:
+                
+                Topic: {topic}
+                
+                Current article:
+                {article_content[:500]}...
+                
+                Plan:
+                {plan[:500]}...
+                
+                Rewrite the complete article to be more {style} while maintaining all key points.
+                The article should still be 800-1200 words and include hashtags."""
+                
+                article_content = research_tool.search(writing_query)
+                save_file(article_content, article_file)
+                iteration += 1
+                print_section(f"Regenerated Article (Iteration {iteration})", article_content)
+            else:
+                break
+    finally:
+        # Create remarks file - guaranteed to run even if user cancels
+        print("\n📝 Creating remarks template...")
+        try:
+            output_dir = Config.get_topic_output_dir(topic)
+            remarks_file = Path(output_dir) / "remarks.md"
+            remarks_content = create_remarks_template(topic)
+            with open(remarks_file, 'w') as f:
+                f.write(remarks_content)
             
-            Plan:
-            {plan[:500]}...
-            
-            Rewrite the complete article to be more {style} while maintaining all key points.
-            The article should still be 800-1200 words and include hashtags."""
-            
-            article_content = research_tool.search(writing_query)
-            save_file(article_content, article_file)
-            iteration += 1
-            print_section(f"Regenerated Article (Iteration {iteration})", article_content)
-        else:
-            break
+            print(f"✓ Remarks template created: {remarks_file}")
+        except Exception as e:
+            print(f"⚠️  Error creating remarks file: {e}")
+            import traceback
+            traceback.print_exc()
     
     return {'content': article_content, 'file': str(article_file), 'modified': True}
 
@@ -331,6 +352,34 @@ def main():
     # Stage 3: Article
     article_result = stage_3_article(args.topic, research_content, plan_content)
     article_content = article_result['content']
+    
+    # Ask if user wants visitor feedback
+    if prompt_yes_no("\n🤖 Would you like LinkedIn visitor reactions to your article?"):
+        output_dir = Path(Config.get_topic_output_dir(args.topic))
+        article_file = output_dir / "03_article.md"
+        
+        print(f"\nGenerating reactions from 3 personas...")
+        lines = article_content.split('\n')
+        article_title = lines[0].strip('# ').strip() if lines else "Article"
+        
+        evaluations = evaluate_article_from_all_personas(article_title, article_content, num_personas=3)
+        
+        # Display results
+        print("\n" + "=" * 60)
+        for eval in evaluations:
+            stars = "⭐" * eval['score']
+            print(f"\n{eval['persona']} {stars}")
+            print(f"  → {eval['reaction']}")
+            print(f"  💬 {eval['comment']}")
+        print("\n" + "=" * 60)
+        
+        # Save reactions
+        reactions_file = output_dir / "reactions.md"
+        reactions_md = format_evaluations_for_markdown(evaluations)
+        with open(reactions_file, 'w') as f:
+            f.write(reactions_md)
+        
+        print(f"\n✓ Reactions saved: {reactions_file}\n")
     
     # Summary
     print(f"\n{'='*60}")

@@ -33,10 +33,10 @@ def load_skeleton(skeleton_path: str) -> str:
         return None
 
 
-def save_output(content: str, filename: str) -> str:
-    """Save generated content to output directory"""
-    output_path = Path(Config.OUTPUTS_DIR) / filename
-    output_path.parent.mkdir(parents=True, exist_ok=True)
+def save_output(content: str, filename: str, topic: str) -> str:
+    """Save generated content to topic-specific output directory"""
+    output_dir = Config.get_topic_output_dir(topic)
+    output_path = Path(output_dir) / filename
     
     with open(output_path, 'w') as f:
         f.write(content)
@@ -92,7 +92,7 @@ def run_workflow(topic: str, skeleton: str = None) -> dict:
     print(f"Research length: {len(research_content)} characters\n")
     
     # Save research
-    research_file = save_output(research_content, "research.md")
+    research_file = save_output(research_content, "research.md", args.topic)
     results['research'] = research_content
     results['research_file'] = research_file
     
@@ -122,7 +122,7 @@ def run_workflow(topic: str, skeleton: str = None) -> dict:
     print(f"Plan length: {len(plan_content)} characters\n")
     
     # Save plan
-    plan_file = save_output(plan_content, "plan.md")
+    plan_file = save_output(plan_content, "plan.md", args.topic)
     results['plan'] = plan_content
     results['plan_file'] = plan_file
     
@@ -157,7 +157,7 @@ def run_workflow(topic: str, skeleton: str = None) -> dict:
     print(f"Article length: {len(article_content)} characters\n")
     
     # Save article
-    article_file = save_output(article_content, "article.md")
+    article_file = save_output(article_content, "article.md", args.topic)
     results['article'] = article_content
     results['article_file'] = article_file
     

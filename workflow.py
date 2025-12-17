@@ -29,8 +29,10 @@ import sys
 from pathlib import Path
 from datetime import datetime
 
-from src.config import Config
+from src.config import Config, sanitize_topic
+from src.visitor_agent import evaluate_article_from_all_personas, format_evaluations_for_markdown
 from src.agents.research_agent import PerplexityResearchTool
+from src.tasks.remarks_template import create_remarks_template
 
 
 def load_file(filepath: str) -> str:
@@ -66,7 +68,8 @@ def stage_research(topic: str, skeleton: str = None, force: bool = False) -> str
     print(f"{'='*60}")
     print(f"Topic: {topic}\n")
     
-    research_file = Path(Config.OUTPUTS_DIR) / "research.md"
+    output_dir = Config.get_topic_output_dir(topic)
+    research_file = Path(output_dir) / "research.md"
     
     if research_file.exists() and not force:
         print(f"✓ Found existing research: {research_file}")
@@ -109,8 +112,9 @@ def stage_plan(topic: str, skeleton: str = None, force: bool = False) -> str:
     print(f"{'='*60}")
     print(f"Topic: {topic}\n")
     
-    research_file = Path(Config.OUTPUTS_DIR) / "research.md"
-    plan_file = Path(Config.OUTPUTS_DIR) / "plan.md"
+    output_dir = Config.get_topic_output_dir(topic)
+    research_file = Path(output_dir) / "research.md"
+    plan_file = Path(output_dir) / "plan.md"
     
     # Load research
     research_content = load_file(research_file)
@@ -167,9 +171,10 @@ def stage_article(topic: str, force: bool = False) -> str:
     print(f"{'='*60}")
     print(f"Topic: {topic}\n")
     
-    research_file = Path(Config.OUTPUTS_DIR) / "research.md"
-    plan_file = Path(Config.OUTPUTS_DIR) / "plan.md"
-    article_file = Path(Config.OUTPUTS_DIR) / "article.md"
+    output_dir = Config.get_topic_output_dir(topic)
+    research_file = Path(output_dir) / "research.md"
+    plan_file = Path(output_dir) / "plan.md"
+    article_file = Path(output_dir) / "article.md"
     
     # Load dependencies
     research_content = load_file(research_file)
@@ -221,15 +226,66 @@ def stage_article(topic: str, force: bool = False) -> str:
     
     save_file(article_content, article_file, overwrite=force)
     
+    # Create remarks file
+    output_dir = Config.get_topic_output_dir(topic)
+    remarks_file = Path(output_dir) / "remarks.md"
+    remarks_content = create_remarks_template(topic)
+    save_file(remarks_content, remarks_file, overwrite=force)
+    
     print(f"\n📝 Article generated ({len(article_content)} characters)")
-    print(f"🎉 Your article is ready!")
-    print(f"📁 Location: {article_file}")
+    print(f"📝 Remarks template created for your feedback")
+    print(f"\n📁 Files created:")
+    print(f"   • {article_file}")
+    print(f"   • {remarks_file}")
     print(f"\n📋 Next steps:")
-    print(f"   1. Review and edit {article_file}")
-    print(f"   2. Copy to LinkedIn")
-    print(f"   3. Publish!")
+    print(f"   1. Add your remarks and feedback to {remarks_file}")
+    print(f"   2. Review and polish {article_file}")
+    print(f"   3. Post to LinkedIn!")
     
     return str(article_file)
+
+
+def stage_visitor_feedback(topic: str, article_path: str) -> str:
+    """Stage 4: Get visitor feedback on article"""
+    print(f"\n{'='*60}")
+    print("🤖 STAGE 4: VISITOR FEEDBACK")
+    print(f"{'='*60}\n")
+    
+    # Load article
+    try:
+        with open(article_path, 'r') as f:
+            article_content = f.read()
+        
+        lines = article_content.split('\n')
+        article_title = lines[0].strip('# ').strip() if lines else "Article"
+    except FileNotFoundError:
+        print(f"Error: Article not found at {article_path}")
+        return None
+    
+    print("Generating LinkedIn visitor reactions...")
+    print("(3 random personas: CxO, Engineer, Non-Technical, Marketer, Product Manager)\n")
+    
+    # Generate evaluations
+    evaluations = evaluate_article_from_all_personas(article_title, article_content, num_personas=3)
+    
+    # Display results
+    for eval in evaluations:
+        stars = "⭐" * eval['score']
+        print(f"{eval['persona']} {stars}")
+        print(f"  → {eval['reaction']}")
+        print(f"  💬 {eval['comment']}\n")
+    
+    # Save reactions
+    output_dir = Path(article_path).parent
+    reactions_file = output_dir / "reactions.md"
+    reactions_md = format_evaluations_for_markdown(evaluations)
+    
+    with open(reactions_file, 'w') as f:
+        f.write(reactions_md)
+    
+    print(f"✓ Reactions saved: {reactions_file}\n")
+    
+    return str(reactions_file)    return str(article_file)
 
 
 def main():
@@ -272,13 +328,26 @@ def main():
     if args.all or not args.stage:
         stage_research(args.topic, skeleton_content, args.force)
         stage_plan(args.topic, skeleton_content, args.force)
-        stage_article(args.topic, args.force)
+        article_file = stage_article(args.topic, args.force)
+        
+        # Ask if user wants visitor feedback
+        print(f"\n{'='*60}")
+        print("Would you like LinkedIn visitor reactions to your article?")
+        print("(3 personas will evaluate: CxO, Engineer, Non-Tech, Marketer, PM)")
+        if input("Generate visitor feedback? (y/n): ").strip().lower() == 'y':
+            stage_visitor_feedback(args.topic, article_file)
     elif args.stage == 'research':
         stage_research(args.topic, skeleton_content, args.force)
     elif args.stage == 'plan':
         stage_plan(args.topic, skeleton_content, args.force)
     elif args.stage == 'article':
-        stage_article(args.topic, args.force)
+        article_file = stage_article(args.topic, args.force)
+        
+        # Ask if user wants visitor feedback
+        print(f"\n{'='*60}")
+        print("Would you like LinkedIn visitor reactions to your article?")
+        if input("Generate visitor feedback? (y/n): ").strip().lower() == 'y':
+            stage_visitor_feedback(args.topic, article_file)
     
     print(f"\n{'='*60}")
     print(f"Completed: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
