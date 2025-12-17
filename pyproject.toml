@@ -1,0 +1,19 @@
+[build-system]
+requires = ["setuptools>=45", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "linkedin-article-agent"
+version = "0.1.0"
+description = "CrewAI agent chain for generating LinkedIn articles with web research"
+requires-python = ">=3.10"
+dependencies = [
+    "crewai>=0.1.0",
+    "crewai-tools>=0.1.0",
+    "pydantic>=2.0",
+    "python-dotenv>=1.0",
+    "requests>=2.31",
+]
+
+[tool.setuptools]
+packages = ["src"]
