@@ -246,23 +246,44 @@ def stage_article(topic: str, force: bool = False) -> str:
 
 
 def stage_revise(topic: str, force: bool = False) -> str:
-    """Revise article based on remarks feedback"""
+    """Revise article based on remarks feedback (iterative revisions)"""
     print(f"\n{'='*60}")
     print("✏️  STAGE 3B: REVISE BASED ON REMARKS")
     print(f"{'='*60}")
     print(f"Topic: {topic}\n")
     
-    output_dir = Config.get_topic_output_dir(topic)
-    article_file = Path(output_dir) / "03_article.md"
-    remarks_file = Path(output_dir) / "remarks.md"
-    revised_file = Path(output_dir) / "04_article_revised.md"
+    output_dir = Path(Config.get_topic_output_dir(topic))
+    remarks_file = output_dir / "remarks.md"
+    
+    # Find the latest revision to build on
+    # Start with 03_article.md, then look for 04_article_revised.md, 05_article_revised_v2.md, etc.
+    article_file = None
+    revision_number = None
+    next_revision_number = 4
+    
+    # Check for existing revisions in order
+    for i in range(4, 20):  # Support up to 20 revisions
+        if i == 4:
+            candidate = output_dir / "04_article_revised.md"
+        else:
+            candidate = output_dir / f"0{i}_article_revised_v{i-3}.md"
+        
+        if candidate.exists():
+            article_file = candidate
+            revision_number = i
+            next_revision_number = i + 1
+    
+    # If no revisions exist yet, start with original article
+    if article_file is None:
+        article_file = output_dir / "03_article.md"
+        next_revision_number = 4
     
     # Load article and remarks
-    article_content = load_file(article_file)
-    remarks_content = load_file(remarks_file)
+    article_content = load_file(str(article_file))
+    remarks_content = load_file(str(remarks_file))
     
     if not article_content:
-        print(f"❌ Article not found. Run stage 3 first.")
+        print(f"❌ Article not found at {article_file}")
         sys.exit(1)
     
     if not remarks_content:
@@ -270,10 +291,19 @@ def stage_revise(topic: str, force: bool = False) -> str:
         print("Using empty remarks for revision context.")
         remarks_content = "No specific feedback provided."
     
-    print("Revising article based on your feedback...")
+    # Determine output filename for next revision
+    if next_revision_number == 4:
+        revised_file = output_dir / "04_article_revised.md"
+    else:
+        revised_file = output_dir / f"0{next_revision_number}_article_revised_v{next_revision_number-3}.md"
+    
+    print(f"📖 Reading from: {article_file.name}")
+    print(f"💬 Using feedback from: {remarks_file.name}")
+    print(f"✍️  Creating: {revised_file.name}")
+    print("\nRevising article based on your feedback...")
     
     research_tool = PerplexityResearchTool()
-    revision_query = f"""You are a professional editor revising a LinkedIn article.
+    revision_query = f"""You are a professional editor refining a LinkedIn article.
 
 Here is the CURRENT article:
 {article_content}
@@ -301,7 +331,7 @@ Output the complete revised article, ready to post."""
         print(f"❌ {revised_content}")
         sys.exit(1)
     
-    save_file(revised_content, revised_file, overwrite=force)
+    save_file(revised_content, str(revised_file), overwrite=force)
     
     print(f"\n📝 Article revised ({len(revised_content)} characters)")
     print(f"📋 Revised article saved: {revised_file}")
