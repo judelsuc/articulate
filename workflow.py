@@ -69,7 +69,7 @@ def stage_research(topic: str, skeleton: str = None, force: bool = False) -> str
     print(f"Topic: {topic}\n")
     
     output_dir = Config.get_topic_output_dir(topic)
-    research_file = Path(output_dir) / "research.md"
+    research_file = Path(output_dir) / "01_research.md"
     
     if research_file.exists() and not force:
         print(f"✓ Found existing research: {research_file}")
@@ -113,8 +113,8 @@ def stage_plan(topic: str, skeleton: str = None, force: bool = False) -> str:
     print(f"Topic: {topic}\n")
     
     output_dir = Config.get_topic_output_dir(topic)
-    research_file = Path(output_dir) / "research.md"
-    plan_file = Path(output_dir) / "plan.md"
+    research_file = Path(output_dir) / "01_research.md"
+    plan_file = Path(output_dir) / "02_plan.md"
     
     # Load research
     research_content = load_file(research_file)
@@ -172,9 +172,9 @@ def stage_article(topic: str, force: bool = False) -> str:
     print(f"Topic: {topic}\n")
     
     output_dir = Config.get_topic_output_dir(topic)
-    research_file = Path(output_dir) / "research.md"
-    plan_file = Path(output_dir) / "plan.md"
-    article_file = Path(output_dir) / "article.md"
+    research_file = Path(output_dir) / "01_research.md"
+    plan_file = Path(output_dir) / "02_plan.md"
+    article_file = Path(output_dir) / "03_article.md"
     
     # Load dependencies
     research_content = load_file(research_file)
@@ -285,7 +285,7 @@ def stage_visitor_feedback(topic: str, article_path: str) -> str:
     
     print(f"✓ Reactions saved: {reactions_file}\n")
     
-    return str(reactions_file)    return str(article_file)
+    return str(article_file)
 
 
 def main():
