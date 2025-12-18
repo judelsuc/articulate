@@ -32,6 +32,7 @@ from datetime import datetime
 from src.config import Config, sanitize_topic
 from src.visitor_agent import evaluate_article_from_all_personas, format_evaluations_for_markdown
 from src.agents.research_agent import PerplexityResearchTool
+from src.agents.verification_agent import VerificationAgent
 from src.tasks.remarks_template import create_remarks_template
 
 
@@ -341,6 +342,63 @@ Output the complete revised article, ready to post."""
     return str(revised_file)
 
 
+def stage_verify(topic: str) -> str:
+    """Verify statistics and find sources for article claims"""
+    print(f"\n{'='*60}")
+    print("🔍 STAGE 3C: VERIFY STATISTICS & SOURCES")
+    print(f"{'='*60}")
+    print(f"Topic: {topic}\n")
+    
+    output_dir = Path(Config.get_topic_output_dir(topic))
+    
+    # Find latest article version
+    article_file = None
+    for i in range(20, 2, -1):  # Check from highest revision down
+        if i == 3:
+            candidate = output_dir / "03_article.md"
+        elif i == 4:
+            candidate = output_dir / "04_article_revised.md"
+        else:
+            candidate = output_dir / f"0{i}_article_revised_v{i-3}.md"
+        
+        if candidate.exists():
+            article_file = candidate
+            break
+    
+    if article_file is None:
+        print(f"❌ Article not found. Run article generation first.")
+        sys.exit(1)
+    
+    # Load article
+    article_content = load_file(str(article_file))
+    if not article_content:
+        print(f"❌ Could not read article from {article_file}")
+        sys.exit(1)
+    
+    print(f"📖 Reading from: {article_file.name}")
+    print("🔎 Extracting statistics and verifying claims...\n")
+    
+    # Run verification
+    verification_agent = VerificationAgent()
+    verification_data = verification_agent.extract_and_verify_claims(article_content, topic)
+    
+    # Create sources file
+    sources_content = verification_agent.format_sources_file(verification_data)
+    sources_file = output_dir / "sources.md"
+    
+    with open(sources_file, 'w') as f:
+        f.write(sources_content)
+    
+    print(f"✓ Verification complete!")
+    print(f"📋 Sources file created: {sources_file}")
+    print(f"\nReview the sources file to:")
+    print("  • Check verification status of each claim")
+    print("  • Find sources and links for statistics")
+    print("  • Add citations to your article as needed")
+    
+    return str(sources_file)
+
+
 def stage_visitor_feedback(topic: str, article_path: str) -> str:
     """Stage 4: Get visitor feedback on article"""
     print(f"\n{'='*60}")
@@ -392,7 +450,7 @@ def main():
     parser.add_argument("--skeleton", help="Path to article skeleton file")
     parser.add_argument(
         "--stage",
-        choices=['research', 'plan', 'article', 'revise'],
+        choices=['research', 'plan', 'article', 'revise', 'verify'],
         help="Which stage to run"
     )
     parser.add_argument("--all", action="store_true", help="Run all stages")
@@ -446,6 +504,8 @@ def main():
             stage_visitor_feedback(args.topic, article_file)
     elif args.stage == 'revise':
         stage_revise(args.topic, args.force)
+    elif args.stage == 'verify':
+        stage_verify(args.topic)
     
     print(f"\n{'='*60}")
     print(f"Completed: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
