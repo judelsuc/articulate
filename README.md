@@ -5,6 +5,8 @@ A CrewAI-based agent chain that generates well-researched LinkedIn articles by:
 2. **Planning** the article structure and key points
 3. **Writing** a complete, polished article
 
+**NB**: This project has been integrally vibe coded.
+
 ## Features
 
 - 🔍 **Web Research**: Leverages Perplexity API for real-time information gathering

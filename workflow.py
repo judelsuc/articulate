@@ -35,6 +35,17 @@ from src.agents.research_agent import PerplexityResearchTool
 from src.agents.verification_agent import VerificationAgent
 from src.tasks.remarks_template import create_remarks_template
 
+# Global research tool to track usage across all stages
+_global_research_tool = None
+
+
+def get_research_tool() -> PerplexityResearchTool:
+    """Get or create the global research tool"""
+    global _global_research_tool
+    if _global_research_tool is None:
+        _global_research_tool = PerplexityResearchTool()
+    return _global_research_tool
+
 
 def load_file(filepath: str) -> str:
     """Load content from file"""
@@ -79,7 +90,7 @@ def stage_research(topic: str, skeleton: str = None, force: bool = False) -> str
     
     print("Generating research from Perplexity API...")
     
-    research_tool = PerplexityResearchTool()
+    research_tool = get_research_tool()
     research_query = f"""Please provide comprehensive research on the topic: "{topic}"
     
     Include:
@@ -131,7 +142,7 @@ def stage_plan(topic: str, skeleton: str = None, force: bool = False) -> str:
     
     print("Generating article plan based on research...")
     
-    research_tool = PerplexityResearchTool()
+    research_tool = get_research_tool()
     skeleton_note = f"\n\nIncorporate these skeleton points:\n{skeleton}" if skeleton else ""
     
     planning_query = f"""Based on this research:
@@ -196,7 +207,7 @@ def stage_article(topic: str, force: bool = False) -> str:
     
     print("Generating article based on plan...")
     
-    research_tool = PerplexityResearchTool()
+    research_tool = get_research_tool()
     writing_query = f"""Write a professional LinkedIn article based on:
     
     Topic: {topic}
@@ -311,7 +322,7 @@ def stage_revise(topic: str, force: bool = False) -> str:
     print(f"✍️  Creating: {revised_file.name}")
     print("\nRevising article based on your feedback...")
     
-    research_tool = PerplexityResearchTool()
+    research_tool = get_research_tool()
     revision_query = f"""You are a professional editor refining a LinkedIn article.
 
 Here is the CURRENT article:
@@ -458,7 +469,7 @@ def main():
     parser.add_argument("--skeleton", help="Path to article skeleton file")
     parser.add_argument(
         "--stage",
-        choices=['research', 'plan', 'article', 'revise', 'verify'],
+        choices=['research', 'plan', 'article', 'revise', 'verify', 'visitor'],
         help="Which stage to run"
     )
     parser.add_argument("--all", action="store_true", help="Run all stages")
@@ -486,36 +497,69 @@ def main():
     print(f"Started: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
     print(f"{'='*60}")
     
+    # Initialize global research tool (will be reused across all stages)
+    _ = get_research_tool()
+    
     # Run stages
     if args.all or not args.stage:
         stage_research(args.topic, skeleton_content, args.force)
         stage_plan(args.topic, skeleton_content, args.force)
         article_file = stage_article(args.topic, args.force)
-        
-        # Ask if user wants visitor feedback
-        print(f"\n{'='*60}")
-        print("Would you like LinkedIn visitor reactions to your article?")
-        print("(3 personas will evaluate: CxO, Engineer, Non-Tech, Marketer, PM)")
-        if input("Generate visitor feedback? (y/n): ").strip().lower() == 'y':
-            stage_visitor_feedback(args.topic, article_file)
+        stage_visitor_feedback(args.topic, article_file)
     elif args.stage == 'research':
         stage_research(args.topic, skeleton_content, args.force)
     elif args.stage == 'plan':
         stage_plan(args.topic, skeleton_content, args.force)
     elif args.stage == 'article':
-        article_file = stage_article(args.topic, args.force)
-        
-        # Ask if user wants visitor feedback
-        print(f"\n{'='*60}")
-        print("Would you like LinkedIn visitor reactions to your article?")
-        if input("Generate visitor feedback? (y/n): ").strip().lower() == 'y':
-            stage_visitor_feedback(args.topic, article_file)
+        stage_article(args.topic, args.force)
     elif args.stage == 'revise':
         stage_revise(args.topic, args.force)
     elif args.stage == 'verify':
         stage_verify(args.topic)
+    elif args.stage == 'visitor':
+        # Get the latest article file
+        output_dir = Config.get_topic_output_dir(args.topic)
+        output_path = Path(output_dir)
+        
+        # Find latest article file (could be revised or original)
+        article_file = None
+        for pattern in ['05_article_revised_v*.md', '04_article_revised.md', '03_article.md']:
+            files = list(output_path.glob(pattern))
+            if files:
+                # Get the most recent if multiple versions
+                article_file = str(sorted(files)[-1])
+                break
+        
+        if not article_file:
+            print(f"❌ No article found for topic: {args.topic}")
+            print(f"Please run the article stage first: python workflow.py --topic '{args.topic}' --stage article")
+            sys.exit(1)
+        
+        stage_visitor_feedback(args.topic, article_file)
+    
+    # Display usage summary
+    research_tool = get_research_tool()
+    usage = research_tool.get_usage_summary()
+    credits_info = research_tool.get_remaining_credits()
     
     print(f"\n{'='*60}")
+    print("📊 API USAGE SUMMARY")
+    print(f"{'='*60}")
+    print(f"API Calls: {usage['total_calls']}")
+    print(f"Prompt Tokens: {usage['prompt_tokens']:,}")
+    print(f"Completion Tokens: {usage['completion_tokens']:,}")
+    print(f"Total Tokens: {usage['total_tokens']:,}")
+    
+    print(f"\n💳 REMAINING CREDITS")
+    print(f"{'='*60}")
+    if credits_info['status'] == 'info_received':
+        print(f"{credits_info['message']}")
+    else:
+        print(f"⚠️  Check your Perplexity API dashboard:")
+        print(f"   {credits_info['url']}")
+    
+    print(f"\n{'='*60}")
+
     print(f"Completed: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
     print(f"{'='*60}\n")
 

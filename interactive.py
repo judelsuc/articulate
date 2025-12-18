@@ -23,6 +23,17 @@ from src.agents.research_agent import PerplexityResearchTool
 from src.agents.verification_agent import VerificationAgent
 from src.tasks.remarks_template import create_remarks_template
 
+# Global research tool to track usage across all stages
+_global_research_tool = None
+
+
+def get_research_tool() -> PerplexityResearchTool:
+    """Get or create the global research tool"""
+    global _global_research_tool
+    if _global_research_tool is None:
+        _global_research_tool = PerplexityResearchTool()
+    return _global_research_tool
+
 
 def load_file(filepath: str) -> str:
     """Load content from file"""
@@ -113,7 +124,7 @@ def stage_1_research(topic: str, skeleton: str = None) -> dict:
         print("Generating research...")
     
     # Generate research
-    research_tool = PerplexityResearchTool()
+    research_tool = get_research_tool()
     research_query = f"""Please provide comprehensive research on the topic: "{topic}"
     
     Include:
@@ -165,7 +176,7 @@ def stage_2_plan(topic: str, research: str, skeleton: str = None) -> dict:
     
     print("Generating article plan based on research...")
     
-    research_tool = PerplexityResearchTool()
+    research_tool = get_research_tool()
     skeleton_note = f"\n\nIncorporate these skeleton points:\n{skeleton}" if skeleton else ""
     
     planning_query = f"""Based on this research:
@@ -237,7 +248,7 @@ def stage_3_article(topic: str, research: str, plan: str) -> dict:
     
     print("Generating article based on plan...")
     
-    research_tool = PerplexityResearchTool()
+    research_tool = get_research_tool()
     writing_query = f"""Write a professional LinkedIn article based on:
     
     Topic: {topic}
@@ -435,6 +446,28 @@ def main():
     print(f"  1. Research:  03_research.md")
     print(f"  2. Plan:      02_plan.md")
     print(f"  3. Article:   03_article.md")
+    
+    # Display usage summary
+    research_tool = get_research_tool()
+    usage = research_tool.get_usage_summary()
+    credits_info = research_tool.get_remaining_credits()
+    print(f"\n{'='*60}")
+    print("📊 API USAGE SUMMARY")
+    print(f"{'='*60}")
+    print(f"API Calls: {usage['total_calls']}")
+    print(f"Prompt Tokens: {usage['prompt_tokens']:,}")
+    print(f"Completion Tokens: {usage['completion_tokens']:,}")
+    print(f"Total Tokens: {usage['total_tokens']:,}")
+    
+    print(f"\n💳 REMAINING CREDITS")
+    print(f"{'='*60}")
+    if credits_info['status'] == 'info_received':
+        print(f"{credits_info['message']}")
+    else:
+        print(f"⚠️  Check your Perplexity API dashboard:")
+        print(f"   {credits_info['url']}")
+    
+    print(f"\n{'='*60}")
     print(f"\n✓ Your article is ready to post on LinkedIn!")
     print(f"\nCompleted: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
 
