@@ -20,6 +20,7 @@ from datetime import datetime
 from src.config import Config, sanitize_topic
 from src.visitor_agent import evaluate_article_from_all_personas, format_evaluations_for_markdown
 from src.agents.research_agent import PerplexityResearchTool
+from src.agents.verification_agent import VerificationAgent
 from src.tasks.remarks_template import create_remarks_template
 
 
@@ -316,6 +317,36 @@ def stage_3_article(topic: str, research: str, plan: str) -> dict:
     return {'content': article_content, 'file': str(article_file), 'modified': True}
 
 
+
+
+def verify_article(topic: str, article_content: str) -> dict:
+    """Verify statistics and find sources for article"""
+    print(f"\n{'='*60}")
+    print("🔍 VERIFY STATISTICS & SOURCES")
+    print(f"{'='*60}")
+    print("Extracting claims and finding sources...\n")
+    
+    verification_agent = VerificationAgent()
+    verification_data = verification_agent.extract_and_verify_claims(article_content, topic)
+    
+    # Create sources file
+    sources_content = verification_agent.format_sources_file(verification_data)
+    output_dir = Config.get_topic_output_dir(topic)
+    sources_file = Path(output_dir) / "sources.md"
+    
+    with open(sources_file, 'w') as f:
+        f.write(sources_content)
+    
+    print(f"✓ Verification complete!")
+    print(f"📋 Sources file created: {sources_file}")
+    print(f"\nReview to:")
+    print("  • Check verification status of each claim")
+    print("  • Find sources and links for statistics")
+    print("  • Add citations to your article")
+    
+    return {'sources_file': str(sources_file), 'verification': verification_data}
+
+
 def main():
     parser = argparse.ArgumentParser(
         description="Interactive article generation with feedback loops"
@@ -352,6 +383,10 @@ def main():
     # Stage 3: Article
     article_result = stage_3_article(args.topic, research_content, plan_content)
     article_content = article_result['content']
+    
+    # Ask if user wants to verify sources
+    if prompt_yes_no("\n🔍 Would you like to verify statistics and find sources?"):
+        verify_article(args.topic, article_content)
     
     # Ask if user wants visitor feedback
     if prompt_yes_no("\n🤖 Would you like LinkedIn visitor reactions to your article?"):
