@@ -258,6 +258,14 @@ def stage_3_article(topic: str, research: str, plan: str) -> dict:
     - Is professional yet conversational
     - Ends with relevant hashtags
     
+    IMPORTANT: Do NOT use inline citations like [1][2] or [ref] in the text.
+    
+    Instead, if you include specific statistics or claims:
+    - Integrate them naturally into sentences without brackets
+    - Do NOT add a sources section (that will be handled separately for verification)
+    
+    The article will be fact-checked separately, so focus on readability and impact.
+    
     Write the complete article ready to post on LinkedIn."""
     
     article_content = research_tool.search(writing_query)
@@ -290,7 +298,10 @@ def stage_3_article(topic: str, research: str, plan: str) -> dict:
                 {plan[:500]}...
                 
                 Rewrite the complete article to be more {style} while maintaining all key points.
-                The article should still be 800-1200 words and include hashtags."""
+                The article should still be 800-1200 words and include hashtags.
+                
+                IMPORTANT: Do NOT use inline citations like [1][2] or [ref].
+                Integrate statistics and claims naturally into sentences without brackets."""
                 
                 article_content = research_tool.search(writing_query)
                 save_file(article_content, article_file)

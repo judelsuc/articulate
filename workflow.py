@@ -217,6 +217,14 @@ def stage_article(topic: str, force: bool = False) -> str:
     - Is professional yet conversational
     - Ends with relevant hashtags
     
+    IMPORTANT: Do NOT use inline citations like [1][2] or [ref] in the text.
+    
+    Instead, if you include specific statistics or claims:
+    - Integrate them naturally into sentences without brackets
+    - Do NOT add a sources section (that will be handled separately for verification)
+    
+    The article will be fact-checked separately, so focus on readability and impact.
+    
     Write the complete article ready to post on LinkedIn."""
     
     article_content = research_tool.search(writing_query)
