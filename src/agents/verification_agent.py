@@ -22,21 +22,30 @@ class VerificationAgent:
             Dictionary with extracted claims and verification results
         """
         
-        verification_query = f"""Analyze this LinkedIn article about "{topic}" and:
+        verification_query = f"""You are a fact-checker and researcher. Your job is to verify ALL statistics, percentages, numbers, and specific claims in this article.
 
-1. Extract ALL statistics, percentages, numbers, and specific claims (e.g., "40% adoption", "2023 data", "Apple reported")
-2. For each claim, provide:
-   - The exact claim from the article
-   - Verification status: ✓ VERIFIED, ⚠️ LIKELY (common knowledge), or ❓ NEEDS REVIEW
-   - Suggested source or reference
-   - Direct link (if available) or how to find it
+For EACH claim you find:
+1. Extract the exact claim
+2. Research and verify it - find the actual source, link, or report
+3. Provide the verification status:
+   - ✓ VERIFIED with source link
+   - ⚠️ LIKELY TRUE (widely accepted industry data)
+   - ❓ CANNOT VERIFY (claim appears unsupported)
+4. Provide the DIRECT source URL or exact reference where the claim comes from
 
-Format as a structured list.
+DO NOT just tell the user "how to find it" - actually verify it yourself using your knowledge and internet searches.
 
-ARTICLE:
+Return results in structured markdown with:
+- The exact claim
+- Your verification status
+- The source (with URL if possible)
+- The publication date / year of the source
+- A brief explanation of why you verified it that way
+
+ARTICLE TO VERIFY:
 {article_content}
 
-Provide the verification results in clear markdown format with sections for each claim."""
+Provide a comprehensive verification report for every statistic, percentage, and quantitative claim in the article."""
         
         verification_content = self.research_tool.search(verification_query)
         
