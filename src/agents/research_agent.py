@@ -22,13 +22,12 @@ class PerplexityResearchTool:
         self.total_completion_tokens = 0
         self.total_calls = 0
     
-    def search(self, query: str) -> str:
+    def search(self, query: str, max_tokens: int = 8000) -> str:
         """
         Search for information using Perplexity API
-        
         Args:
             query: Search query string
-            
+            max_tokens: Maximum tokens for the completion (default: 8000)
         Returns:
             Research findings as string
         """
@@ -41,18 +40,15 @@ class PerplexityResearchTool:
                         "content": query
                     }
                 ],
-                max_tokens=4000,
+                max_tokens=max_tokens,
                 temperature=0.7
             )
-            
             # Track usage
             if hasattr(response, 'usage') and response.usage:
                 self.total_prompt_tokens += response.usage.prompt_tokens
                 self.total_completion_tokens += response.usage.completion_tokens
                 self.total_calls += 1
-            
             return response.choices[0].message.content
-            
         except Exception as e:
             return f"Error during research: {str(e)}"
     

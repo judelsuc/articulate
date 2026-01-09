@@ -209,15 +209,15 @@ def stage_article(topic: str, force: bool = False) -> str:
     
     research_tool = get_research_tool()
     writing_query = f"""Write a professional LinkedIn article based on:
-    
+
     Topic: {topic}
-    
+
     Research findings:
-    {research_content[:800]}...
-    
+    {research_content[:5000]}...
+
     Article plan:
-    {plan_content[:800]}...
-    
+    {plan_content[:5000]}...
+
     Create a complete, engaging LinkedIn article that:
     - Starts with a compelling hook
     - Is 800-1200 words
@@ -227,15 +227,15 @@ def stage_article(topic: str, force: bool = False) -> str:
     - Uses short paragraphs for readability
     - Is professional yet conversational
     - Ends with relevant hashtags
-    
+
     IMPORTANT: Do NOT use inline citations like [1][2] or [ref] in the text.
-    
+
     Instead, if you include specific statistics or claims:
     - Integrate them naturally into sentences without brackets
     - Do NOT add a sources section (that will be handled separately for verification)
-    
+
     The article will be fact-checked separately, so focus on readability and impact.
-    
+
     Write the complete article ready to post on LinkedIn."""
     
     article_content = research_tool.search(writing_query)
@@ -326,12 +326,12 @@ def stage_revise(topic: str, force: bool = False) -> str:
     revision_query = f"""You are a professional editor refining a LinkedIn article.
 
 Here is the CURRENT article:
-{article_content}
+{article_content[:20000]}
 
 ---
 
 Here is the AUTHOR'S FEEDBACK and REMARKS:
-{remarks_content}
+{remarks_content[:8000]}
 
 ---
 
@@ -345,7 +345,7 @@ Please revise the article to incorporate the author's feedback while:
 
 Output the complete revised article, ready to post."""
     
-    revised_content = research_tool.search(revision_query)
+    revised_content = research_tool.search(revision_query, max_tokens=8000)
     
     if revised_content.startswith("Error"):
         print(f"❌ {revised_content}")
