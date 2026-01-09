@@ -92,7 +92,7 @@ def run_workflow(topic: str, skeleton: str = None) -> dict:
     print(f"Research length: {len(research_content)} characters\n")
     
     # Save research
-    research_file = save_output(research_content, "research.md", args.topic)
+    research_file = save_output(research_content, "research.md", topic)
     results['research'] = research_content
     results['research_file'] = research_file
     
@@ -122,7 +122,7 @@ def run_workflow(topic: str, skeleton: str = None) -> dict:
     print(f"Plan length: {len(plan_content)} characters\n")
     
     # Save plan
-    plan_file = save_output(plan_content, "plan.md", args.topic)
+    plan_file = save_output(plan_content, "plan.md", topic)
     results['plan'] = plan_content
     results['plan_file'] = plan_file
     
@@ -157,7 +157,7 @@ def run_workflow(topic: str, skeleton: str = None) -> dict:
     print(f"Article length: {len(article_content)} characters\n")
     
     # Save article
-    article_file = save_output(article_content, "article.md", args.topic)
+    article_file = save_output(article_content, "article.md", topic)
     results['article'] = article_content
     results['article_file'] = article_file
     
